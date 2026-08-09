@@ -1,0 +1,1149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SiteGPT</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  <style>
+    /* ── Auth Modal ── */
+    .login-overlay {
+      position: fixed; inset: 0; z-index: 999;
+      background: rgba(0,0,0,0.6);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .login-modal {
+      background: #fff; border-radius: 22px;
+      padding: 32px 28px 28px;
+      width: 360px; max-width: 94vw;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.25);
+      animation: modalIn 0.22s ease;
+    }
+    @keyframes modalIn {
+      from { transform: scale(0.93); opacity: 0; }
+      to   { transform: scale(1);   opacity: 1; }
+    }
+    .login-logo {
+      width: 48px; height: 48px; border-radius: 50%;
+      background: #111; color: #c8a96e;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 700; margin: 0 auto 12px;
+    }
+    .login-title { font-size: 17px; font-weight: 700; color: #111; text-align:center; margin-bottom: 4px; }
+    .login-sub   { font-size: 12.5px; color: #777; text-align:center; line-height: 1.5; margin-bottom: 20px; }
+
+    /* tabs */
+    .auth-tabs { display:flex; gap:0; border-radius:10px; background:#f2f2f2; padding:3px; margin-bottom:20px; }
+    .auth-tab  {
+      flex:1; padding:8px 0; border:none; background:transparent;
+      font-size:13px; font-weight:600; color:#888; border-radius:8px;
+      cursor:pointer; font-family:'Inter',sans-serif; transition:all 0.15s;
+    }
+    .auth-tab.active { background:#fff; color:#111; box-shadow:0 1px 4px rgba(0,0,0,0.1); }
+
+    /* form */
+    .auth-form { display:flex; flex-direction:column; gap:12px; }
+    .auth-field {
+      display:flex; flex-direction:column; gap:5px;
+    }
+    .auth-label { font-size:12px; font-weight:600; color:#444; }
+    .auth-input {
+      padding:10px 14px; border-radius:10px; border:1.5px solid #e0e0e0;
+      font-size:13.5px; color:#111; outline:none; font-family:'Inter',sans-serif;
+      transition:border-color 0.15s;
+    }
+    .auth-input:focus { border-color:#c8a96e; }
+    .auth-error { font-size:12px; color:#dc2626; min-height:16px; text-align:center; }
+    .auth-submit {
+      padding:12px; border-radius:12px; border:none;
+      background:#111; color:#c8a96e;
+      font-size:14px; font-weight:700; cursor:pointer;
+      font-family:'Inter',sans-serif; transition:opacity 0.15s;
+      margin-top:2px;
+    }
+    .auth-submit:hover { opacity:0.85; }
+    .auth-submit:disabled { opacity:0.45; cursor:not-allowed; }
+
+    /* divider */
+    .auth-or { display:flex; align-items:center; gap:10px; margin:4px 0; }
+    .auth-or::before,.auth-or::after { content:''; flex:1; height:1px; background:#eee; }
+    .auth-or span { font-size:11px; color:#bbb; white-space:nowrap; }
+
+    /* Google btn */
+    .google-btn {
+      display:flex; align-items:center; justify-content:center; gap:10px;
+      width:100%; padding:11px 16px; border-radius:12px;
+      border:1.5px solid #dadce0; background:#fff; cursor:pointer;
+      font-size:13.5px; font-weight:600; color:#111;
+      font-family:'Inter',sans-serif; transition:background 0.15s,box-shadow 0.15s;
+    }
+    .google-btn:hover { background:#f7f7f7; box-shadow:0 2px 8px rgba(0,0,0,0.08); }
+
+    /* header user badge */
+    .login-user-badge {
+      display:none; align-items:center; gap:7px;
+      padding:4px 10px 4px 4px;
+      background:rgba(255,255,255,0.10);
+      border-radius:20px; border:0.5px solid rgba(255,255,255,0.18);
+    }
+    .login-user-badge.show { display:flex; }
+    .user-badge-avatar {
+      width:24px; height:24px; border-radius:50%; overflow:hidden; flex-shrink:0;
+      background:#c8a96e; display:flex; align-items:center; justify-content:center;
+      font-size:10px; font-weight:700; color:#111;
+    }
+    .user-badge-avatar img { width:100%; height:100%; object-fit:cover; }
+    .user-badge-name { font-size:11px; color:rgba(240,235,226,0.85); font-weight:500;
+      max-width:100px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .user-badge-logout {
+      display:flex; align-items:center; justify-content:center;
+      width:18px; height:18px; margin-left:2px; flex-shrink:0;
+      border:none; border-radius:50%; background:transparent;
+      color:rgba(240,235,226,0.65); font-size:12px; cursor:pointer;
+      transition:background 0.15s, color 0.15s;
+    }
+    .user-badge-logout:hover { background:rgba(255,255,255,0.15); color:#fff; }
+
+
+    .bubble-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-top: 12px;
+    }
+    .bubble-chip {
+      font-size: 12px;
+      font-weight: 500;
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 1.5px solid #c8a96e;
+      background: #fff8f0;
+      color: #8b6914;
+      cursor: pointer;
+      white-space: nowrap;
+      font-family: var(--font, 'Inter', sans-serif);
+      transition: background 0.15s, color 0.15s;
+      line-height: 1;
+    }
+    .bubble-chip:hover { background: #c8a96e; color: #fff; }
+
+    /* ── Product Cards ── */
+    .product-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+    .pcard {
+      border-radius: 12px;
+      border: 1px solid #ede0cc;
+      background: #fff;
+      overflow: hidden;
+      text-decoration: none;
+      display: flex;
+      flex-direction: column;
+      transition: box-shadow 0.18s, transform 0.18s;
+      cursor: pointer;
+    }
+    .pcard:hover {
+      box-shadow: 0 6px 20px rgba(200,169,110,0.25);
+      transform: translateY(-2px);
+    }
+    .pcard-img {
+      width: 100%;
+      aspect-ratio: 3/4;
+      background: #f9f3ea;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 36px;
+      overflow: hidden;
+    }
+    .pcard-img img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .pcard-body {
+      padding: 10px 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex: 1;
+    }
+    .pcard-brand {
+      font-size: 10px;
+      font-weight: 600;
+      color: #c8a96e;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .pcard-name {
+      font-size: 12px;
+      font-weight: 500;
+      color: #222;
+      line-height: 1.35;
+      overflow: hidden;
+      max-height: 2.7em;
+    }
+    .pcard-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 6px;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .pcard-price {
+      font-size: 13px;
+      font-weight: 700;
+      color: #1a1a1a;
+    }
+    .pcard-badge {
+      font-size: 9px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 10px;
+      background: #e8f5e9;
+      color: #2e7d32;
+      white-space: nowrap;
+    }
+    .pcard-badge.out {
+      background: #fdecea;
+      color: #c62828;
+    }
+    .pcard-btn {
+      display: block;
+      margin-top: 8px;
+      text-align: center;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 6px 0;
+      border-radius: 8px;
+      background: #c8a96e;
+      color: #fff;
+      text-decoration: none;
+      transition: background 0.15s;
+    }
+    .pcard-btn:hover { background: #a8883e; }
+
+    .more-chips-label {
+      width: 100%;
+      font-size: 11px;
+      color: #aaa;
+      margin-top: 8px;
+      margin-bottom: 2px;
+    }
+
+    /* ── Recommendation Section ── */
+    .rec-section {
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px dashed #e8d9c0;
+    }
+    .rec-section-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #c8a96e;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .rec-section-label::before {
+      content: '✨';
+      font-size: 12px;
+    }
+    .rec-section-sub {
+      font-size: 12.5px;
+      color: #8a7a5c;
+      margin: -2px 0 10px 0;
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Email Capture Popup (shown after 3 messages) ── -->
+<div class="login-overlay" id="emailPopupOverlay" style="display:none;">
+  <div class="login-modal">
+    <div class="login-logo">S</div>
+    <div class="login-title">Stay connected 💛</div>
+    <div class="login-sub">Enter your email so we can save your chat history and keep you updated.</div>
+    <div class="auth-form" style="margin-top:8px;">
+      <div class="auth-field">
+        <label class="auth-label">Email address</label>
+        <input class="auth-input" id="capEmail" type="email" placeholder="you@example.com" autocomplete="email" />
+      </div>
+      <div class="auth-error" id="capError"></div>
+      <button class="auth-submit" id="capBtn" onclick="submitCaptureEmail()">Save My Email</button>
+      <button onclick="dismissEmailPopup()" style="background:none;border:none;color:#aaa;font-size:12px;cursor:pointer;margin-top:4px;font-family:'Inter',sans-serif;">Skip for now</button>
+    </div>
+  </div>
+</div>
+
+<div class="shell">
+
+  <div class="header">
+    <div class="logo">S</div>
+    <div class="header-info">
+      <div class="header-name">SiteGPT</div>
+      <div class="header-status"><div class="status-dot"></div>Online · Shopping Assistant</div>
+    </div>
+    <div class="header-actions">
+      <div class="login-user-badge" id="userBadge">
+        <div class="user-badge-avatar" id="userBadgeAvatar">Y</div>
+        <div class="user-badge-name" id="userBadgeName"></div>
+        <button class="user-badge-logout" id="logoutBtn" onclick="doLogout()" title="Logout">⏻</button>
+      </div>
+      <button class="hbtn" onclick="openHistoryPanel()" title="My chat history">🕘</button>
+      <button class="hbtn" onclick="clearChat()" title="Clear chat">🗑</button>
+      <a class="hbtn" href="https://www.westside.com" target="_blank" title="Visit Westside">↗</a>
+    </div>
+  </div>
+
+  <div class="messages" id="msgArea">
+    <div class="divider"><span>Today</span></div>
+    <div class="row">
+      <div class="avatar">S</div>
+      <div class="bgroup">
+        <div class="bubble bot">
+          Hi! I'm your shopping assistant 👋<br>
+          I can help you find products, check prices and explore collections.<br>
+          What are you looking for today?
+          <div class="bubble-chips" id="welcomeChips"></div>
+        </div>
+        <div class="btime" id="welcomeTime"></div>
+      </div>
+    </div>
+    <div class="typing-row" id="typing" style="display:none;">
+      <div class="avatar">S</div>
+      <div class="typing-bubble">
+        <div class="tdot"></div><div class="tdot"></div><div class="tdot"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="input-wrap">
+      <input class="msg-input" id="msgInput"
+             placeholder="Send your message here"
+             autocomplete="off" onkeydown="handleKey(event)" />
+      <button class="icon-btn mic-btn" id="micBtn" title="Voice input" onclick="toggleMic()">
+        <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2.5a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0v-6a3 3 0 0 0-3-3Z"/>
+          <path d="M5.5 10.5v1a6.5 6.5 0 0 0 13 0v-1"/>
+          <path d="M12 18v3"/>
+          <path d="M9 21h6"/>
+        </svg>
+      </button>
+      <div class="emoji-wrap">
+        <button class="icon-btn emoji-btn" id="emojiBtn" title="Emoji" onclick="toggleEmojiPicker(event)">
+          <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="9.25"/>
+            <path d="M8.5 14.2s1.2 1.6 3.5 1.6 3.5-1.6 3.5-1.6"/>
+            <path d="M9 9.6h.01"/>
+            <path d="M15 9.6h.01"/>
+          </svg>
+        </button>
+        <div class="emoji-picker" id="emojiPicker" onclick="event.stopPropagation()">
+          <div class="emoji-tabs" id="emojiTabs"></div>
+          <div class="emoji-search-wrap">
+            <input class="emoji-search" id="emojiSearch" type="text" placeholder="Search emoji"
+                   oninput="renderEmojiBody(this.value.trim())" />
+          </div>
+          <div class="emoji-body" id="emojiBody"></div>
+        </div>
+      </div>
+    </div>
+    <button class="send-btn" id="sendBtn" onclick="sendMsg()" title="Send">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21.5 2.5 11 13"/>
+        <path d="M21.5 2.5 14.8 21.5 11 13 2.5 9.2Z"/>
+      </svg>
+    </button>
+  </div>
+
+</div>
+
+<!-- ── History Panel ── -->
+<div class="history-overlay" id="historyOverlay" onclick="closeHistoryPanel(event)">
+  <div class="history-panel" onclick="event.stopPropagation()">
+    <div class="history-panel-head">
+      <button class="history-close" onclick="closeHistoryPanel()">←</button>
+      <div class="history-panel-title">Messages</div>
+      <span style="width:30px;"></span>
+    </div>
+    <div class="history-panel-body" id="historyPanelBody">
+      <div class="history-empty">Loading...</div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ══════════════════════════════════════════════════════
+   AUTH  —  Anonymous user + email capture after 3 messages
+   ══════════════════════════════════════════════════════ */
+
+var USER_ID    = '';
+var USER_NAME  = '';
+var USER_PIC   = '';
+var SESSION_ID = 'ws_' + Math.random().toString(36).slice(2,9);
+var area    = document.getElementById('msgArea');
+var input   = document.getElementById('msgInput');
+var typing  = document.getElementById('typing');
+var sendBtn = document.getElementById('sendBtn');
+
+var _msgCount       = 0;   // user messages sent this session
+var _emailCaptured  = false;
+var _popupDismissed = false;
+var EMAIL_POPUP_AFTER = 3;  // show popup after this many user messages
+
+/* ── Session helpers (localStorage) ── */
+function saveSession(userId, email) {
+  localStorage.setItem('siteGPT_anon', JSON.stringify({userId: userId, email: email || null}));
+}
+function loadSession() {
+  try { return JSON.parse(localStorage.getItem('siteGPT_anon') || 'null'); } catch(e) { return null; }
+}
+function clearSession() {
+  localStorage.removeItem('siteGPT_anon');
+}
+
+/* ── Generate a local user_id instantly (no server wait) ── */
+function generateLocalId() {
+  var arr = new Uint8Array(8);
+  window.crypto.getRandomValues(arr);
+  return 'u_' + Array.from(arr).map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
+}
+
+/* ── Register user_id on server (background, non-blocking) ── */
+function syncUserToServer(userId) {
+  fetch('/auth/anon', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({user_id: userId})
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){ console.log('[auth] synced to server:', d.status); })
+  .catch(function(e){ console.warn('[auth] server sync failed:', e); });
+}
+
+/* ── Email popup ── */
+function showEmailPopup() {
+  if (_emailCaptured || _popupDismissed) return;
+  document.getElementById('emailPopupOverlay').style.display = 'flex';
+  setTimeout(function(){ document.getElementById('capEmail').focus(); }, 200);
+}
+
+function dismissEmailPopup() {
+  document.getElementById('emailPopupOverlay').style.display = 'none';
+  _popupDismissed = true;
+}
+
+async function submitCaptureEmail() {
+  var email = document.getElementById('capEmail').value.trim().toLowerCase();
+  var errEl = document.getElementById('capError');
+  var btn   = document.getElementById('capBtn');
+  errEl.textContent = '';
+
+  var re = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+  if (!email || !re.test(email)) {
+    errEl.textContent = 'Please enter a valid email address.';
+    return;
+  }
+
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    var res  = await fetch('/auth/capture-email', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ user_id: USER_ID, email: email })
+    });
+    var data = await res.json();
+    if (data.status === 'ok' || data.status === 'already_used') {
+      _emailCaptured = true;
+      saveSession(USER_ID, email);
+      document.getElementById('emailPopupOverlay').style.display = 'none';
+      showToast('✅ Email saved! Thank you.');
+    } else {
+      errEl.textContent = data.message || 'Error. Try again.';
+    }
+  } catch(e) {
+    errEl.textContent = 'Connection error. Try again.';
+  }
+  btn.disabled = false; btn.textContent = 'Save My Email';
+}
+
+/* Enter key in email popup */
+document.getElementById('capEmail').addEventListener('keydown', function(e){
+  if (e.key === 'Enter') submitCaptureEmail();
+});
+
+/* ── Logout (just clears local session, refreshes) ── */
+function doLogout() {
+  if (!confirm('Clear session and start fresh?')) return;
+  clearSession();
+  window.location.reload();
+}
+
+/* ── Boot: USER_ID set SYNCHRONOUSLY before anything else ── */
+(function initAuth() {
+  var s = loadSession();
+  if (s && s.userId) {
+    USER_ID = s.userId;
+    if (s.email) _emailCaptured = true;
+    console.log('[auth] restored session:', USER_ID, s.email ? '(email set)' : '(anon)');
+    // Returning visitor — still sync to server so visit_count & last_seen update
+    syncUserToServer(USER_ID);
+  } else {
+    USER_ID = generateLocalId();
+    saveSession(USER_ID, null);
+    console.log('[auth] new anon user:', USER_ID);
+    syncUserToServer(USER_ID);
+  }
+})();
+
+
+var TOP_CHIPS = [
+  "Men's Collection","Women's Collection","Kids Collection",
+  "Jewellery","Perfumes", "Beauty","Gifts","New Arrivals"
+];
+
+document.getElementById('welcomeTime').textContent = getTime();
+renderBubbleChips(document.getElementById('welcomeChips'), TOP_CHIPS, []);
+// Previous conversation auto-replay on page load has been disabled.
+// Full history is still saved in MongoDB and viewable via the
+// 🕘 history button (Messages panel) and the /admin/users dashboard.
+
+/* ── history panel (Messages screen: grouped inquiry cards) ── */
+var currentInquiries = [];
+
+async function openHistoryPanel(){
+  var overlay = document.getElementById('historyOverlay');
+  var body    = document.getElementById('historyPanelBody');
+  overlay.classList.add('show');
+  body.innerHTML = '<div class="history-empty">Loading...</div>';
+  try{
+    var res  = await fetch('/inquiries?user_id=' + encodeURIComponent(USER_ID));
+    var data = await res.json();
+    currentInquiries = data.inquiries || [];
+    renderInquiryList();
+  }catch(e){
+    body.innerHTML = '<div class="history-empty">Could not load history. Please try again.</div>';
+  }
+}
+
+/* The backend now stores/sends naive timestamps that already ARE
+   India time (see mongodb.py now_ist()). We must read the numbers
+   straight out of the ISO string instead of handing it to `new
+   Date()` — the Date constructor treats a timezone-less ISO string
+   as UTC, which would then double-shift if we also forced
+   Asia/Kolkata formatting on top. Parsing manually avoids that. */
+function parseIstStamp(iso){
+  if(!iso) return null;
+  var m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+  if(!m) return null;
+  return {
+    year:  +m[1], month: +m[2], day: +m[3],
+    hour:  +m[4], minute:+m[5]
+  };
+}
+function formatIstDate(iso){
+  var p = parseIstStamp(iso);
+  if(!p) return '';
+  return p.month+'/'+p.day+'/'+p.year;
+}
+function formatIstTime(iso){
+  var p = parseIstStamp(iso);
+  if(!p) return '';
+  var h = p.hour % 12 || 12;
+  var mm = String(p.minute).padStart(2,'0');
+  return h+':'+mm+' '+(p.hour>=12?'pm':'am');
+}
+function formatIstDateTime(iso){
+  var p = parseIstStamp(iso);
+  if(!p) return '';
+  return formatIstDate(iso)+', '+formatIstTime(iso);
+}
+
+function renderInquiryList(){
+  var body = document.getElementById('historyPanelBody');
+  if(currentInquiries.length === 0){
+    body.innerHTML =
+      '<div class="history-empty">No past conversations yet.<br>Start chatting and it’ll show up here! 😊</div>'+
+      sendMessageCta();
+    return;
+  }
+  var html = '<div class="inquiry-list">';
+  currentInquiries.forEach(function(inq){
+    var dateStr = formatIstDate(inq.created_at)+' • '+formatIstTime(inq.created_at);
+    html +=
+      '<div class="inquiry-card">'+
+        '<div class="inquiry-avatar">S</div>'+
+        '<div class="inquiry-info">'+
+          '<div class="inquiry-title">'+escapeHtml(inq.title)+'</div>'+
+          '<div class="inquiry-date">'+dateStr+'</div>'+
+        '</div>'+
+        '<div class="inquiry-actions">'+
+          '<button class="inquiry-icon-btn" title="Continue this chat" onclick="continueInquiry(\''+inq.id+'\')">'+
+            '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6"/><path d="M20 4 10 14"/><path d="M19 13v6a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h6"/></svg>'+
+          '</button>'+
+          '<button class="inquiry-icon-btn" title="Delete" onclick="deleteInquiryCard(\''+inq.id+'\')">'+
+            '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><path d="M6 6l1 14a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-14"/></svg>'+
+          '</button>'+
+        '</div>'+
+      '</div>';
+  });
+  html += '</div>';
+  html += sendMessageCta();
+  body.innerHTML = html;
+}
+
+function sendMessageCta(){
+  return '<button class="send-msg-cta" onclick="closeHistoryPanel(); input.focus();">'+
+           'Send us a message '+
+           '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-1.1 4.2L21 21l-5.3-1a8.5 8.5 0 1 1 5.3-8.5Z"/></svg>'+
+         '</button>';
+}
+
+function escapeHtml(t){
+  return (t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/* open one inquiry's full message thread inside the panel */
+function openInquiryDetail(id){
+  var inq = currentInquiries.find(function(x){ return x.id === id; });
+  if(!inq) return;
+  var body = document.getElementById('historyPanelBody');
+  var html =
+    '<div class="inquiry-detail-head">'+
+      '<button class="history-close" onclick="renderInquiryList()">←</button>'+
+      '<div class="history-panel-title" style="color:#1a1a1a;">'+escapeHtml(inq.title)+'</div>'+
+    '</div>'+
+    '<div class="inquiry-detail-body">';
+  inq.messages.forEach(function(msg){
+    var cls = msg.role === 'user' ? 'h-user' : 'h-bot';
+    var timeStr = formatIstDateTime(msg.timestamp);
+    html += '<div class="history-msg '+cls+'">'+
+              '<div class="history-msg-role">'+(msg.role === 'user' ? 'You' : 'SiteGPT')+'</div>'+
+              '<div class="history-msg-text">'+fmt(msg.content)+'</div>'+
+              '<div class="history-msg-time">'+timeStr+'</div>'+
+            '</div>';
+  });
+  html += '</div>';
+  body.innerHTML = html;
+}
+
+/* continue a past inquiry: load its messages into the live chat
+   area and switch SESSION_ID to it, so new messages append to the
+   SAME thread on the server instead of starting a fresh session */
+function continueInquiry(id){
+  var inq = currentInquiries.find(function(x){ return x.id === id; });
+  if(!inq) return;
+
+  // Switch the active session to this inquiry's session_id
+  SESSION_ID = inq.id;
+
+  // Rebuild the live chat area with this conversation's messages.
+  // IMPORTANT: re-attach the `typing` indicator to `area` FIRST —
+  // addPastUserBubble/addPastBotBubble do area.insertBefore(row, typing),
+  // which throws (and silently stops the whole loop) if `typing` isn't
+  // currently a child of `area`. That was the root cause of only part
+  // of the history (or none of it) showing up.
+  area.innerHTML = '';
+  area.appendChild(typing);
+
+  var divider = document.createElement('div');
+  divider.className = 'divider';
+  divider.innerHTML = '<span>Continuing conversation</span>';
+  area.insertBefore(divider, typing);
+
+  inq.messages.forEach(function(msg){
+    if(msg.role === 'user'){
+      addPastUserBubble(msg.content);
+    } else {
+      addPastBotBubble(msg.content);
+    }
+  });
+
+  closeHistoryPanel();
+  scrollBottom();
+  input.focus();
+  showToast('Continuing this conversation');
+}
+
+
+async function deleteInquiryCard(id){
+  try{
+    await fetch('/inquiries/' + encodeURIComponent(id) + '?user_id=' + encodeURIComponent(USER_ID), {
+      method: 'DELETE'
+    });
+    currentInquiries = currentInquiries.filter(function(x){ return x.id !== id; });
+    renderInquiryList();
+    showToast('Conversation deleted');
+  }catch(e){
+    showToast('Could not delete — try again.');
+  }
+}
+
+function closeHistoryPanel(e){
+  document.getElementById('historyOverlay').classList.remove('show');
+}
+
+/* ── load past history from DB on page load ── */
+async function loadPastHistory(){
+  try{
+    var res = await fetch('/history?user_id=' + encodeURIComponent(USER_ID));
+    if(!res.ok) return;
+    var data = await res.json();
+    var hist = data.history || [];
+    if(hist.length === 0) return;
+
+    var divider = document.createElement('div');
+    divider.className = 'divider';
+    divider.innerHTML = '<span>Previous conversation</span>';
+    area.insertBefore(divider, typing);
+
+    hist.forEach(function(msg){
+      if(msg.role === 'user'){
+        addPastUserBubble(msg.content);
+      } else {
+        addPastBotBubble(msg.content);
+      }
+    });
+    scrollBottom();
+  }catch(e){
+    console.log('Could not load past history', e);
+  }
+}
+function addPastUserBubble(text){
+  var row=document.createElement('div');
+  row.className='row user';
+  row.innerHTML=
+    '<div class="avatar user-av">Y</div>'+
+    '<div class="bgroup">'+
+      '<div class="bubble user">'+fmt(text)+'</div>'+
+    '</div>';
+  area.insertBefore(row,typing);
+}
+function addPastBotBubble(text){
+  var row=document.createElement('div');
+  row.className='row';
+  row.innerHTML=
+    '<div class="avatar">S</div>'+
+    '<div class="bgroup">'+
+      '<div class="bubble bot">'+fmt(text)+'</div>'+
+    '</div>';
+  area.insertBefore(row,typing);
+}
+
+/* ── helpers ── */
+function getTime(){
+  var d=new Date(),h=d.getHours()%12||12,m=d.getMinutes().toString().padStart(2,'0');
+  return h+':'+m+' '+(d.getHours()>=12?'pm':'am');
+}
+function scrollBottom(){ area.scrollTop=area.scrollHeight; }
+function showTyping(){ typing.style.display='flex'; area.appendChild(typing); scrollBottom(); }
+function hideTyping(){ typing.style.display='none'; }
+function setLoading(on){ sendBtn.disabled=on; input.disabled=on; }
+
+function fmt(raw){
+  var t=raw.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  t=t.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+  t=t.replace(/(https?:\/\/[^\s<"]+)/g,'<a href="$1" target="_blank" rel="noopener" class="plink">$1</a>');
+  t=t.replace(/\n/g,'<br>');
+  return t;
+}
+
+/* ── chips ── */
+function renderBubbleChips(container, chips, moreOptions){
+  container.innerHTML='';
+  if((!chips||chips.length===0)&&(!moreOptions||moreOptions.length===0)) return;
+
+  (chips||[]).forEach(function(label){
+    var btn=document.createElement('button');
+    btn.className='bubble-chip';
+    btn.textContent=label;
+    btn.onclick=function(){ chipSend(label); };
+    container.appendChild(btn);
+  });
+
+  if(moreOptions&&moreOptions.length>0){
+    var sep=document.createElement('div');
+    sep.className='more-chips-label';
+    sep.textContent='Explore more from this collection:';
+    container.appendChild(sep);
+    moreOptions.forEach(function(label){
+      var btn=document.createElement('button');
+      btn.className='bubble-chip';
+      btn.textContent=label;
+      btn.onclick=function(){ chipSend(label); };
+      container.appendChild(btn);
+    });
+  }
+}
+
+/* ── recommendation cards ── */
+function escHtml(s) {
+  return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function buildRecommendations(recs) {
+  if (!recs || recs.length === 0) return '';
+  var reason = recs[0] && recs[0].matched_reason ? recs[0].matched_reason : '';
+  var subtext = reason
+    ? '<div class="rec-section-sub">You searched ' + escHtml(reason) + ' before — here\'s a suggestion for you 👇</div>'
+    : '';
+  var html = '<div class="rec-section">' +
+    '<div class="rec-section-label">Based on your interests</div>' +
+    subtext +
+    '<div class="product-grid">';
+  recs.forEach(function(p) {
+    var inStock = !p.availability || !p.availability.toLowerCase().includes('out');
+    var badge = inStock
+      ? '<span class="pcard-badge">In Stock</span>'
+      : '<span class="pcard-badge out">Out of Stock</span>';
+    var imgHtml = p.image
+      ? '<img src="' + p.image + '" alt="' + (p.name || '').replace(/"/g, '') + '" onerror="this.style.display=\'none\';this.parentElement.innerHTML=\'🛍️\'">'
+      : '🛍️';
+    var priceHtml = p.price ? '₹' + p.price : '';
+    html +=
+      '<a class="pcard" href="' + (p.url || '#') + '" target="_blank" rel="noopener">' +
+        '<div class="pcard-img">' + imgHtml + '</div>' +
+        '<div class="pcard-body">' +
+          '<div class="pcard-brand">' + (p.brand || 'Westside') + '</div>' +
+          '<div class="pcard-name">' + (p.name || '') + '</div>' +
+          '<div class="pcard-footer">' +
+            '<div class="pcard-price">' + priceHtml + '</div>' +
+            badge +
+          '</div>' +
+          '<div class="pcard-btn">View Product →</div>' +
+        '</div>' +
+      '</a>';
+  });
+  html += '</div></div>';
+  return html;
+}
+
+/* ── product cards ── */
+function buildCards(products){
+  if(!products||products.length===0) return '';
+  var html='<div class="product-grid">';
+  products.forEach(function(p){
+    var inStock = !p.availability || !p.availability.toLowerCase().includes('out');
+    var badge = inStock
+      ? '<span class="pcard-badge">In Stock</span>'
+      : '<span class="pcard-badge out">Out of Stock</span>';
+    var imgHtml = p.image
+      ? '<img src="'+p.image+'" alt="'+p.name.replace(/"/g,'')+'" onerror="this.style.display=\'none\';this.parentElement.innerHTML=\'🛍️\'">'
+      : '🛍️';
+    var priceHtml = p.price ? '₹'+p.price : '';
+    var cardUrl = p.url || '#';
+
+    html +=
+      '<a class="pcard" href="'+cardUrl+'" target="_blank" rel="noopener">'+
+        '<div class="pcard-img">'+imgHtml+'</div>'+
+        '<div class="pcard-body">'+
+          '<div class="pcard-brand">'+(p.brand||'Westside')+'</div>'+
+          '<div class="pcard-name">'+p.name+'</div>'+
+          '<div class="pcard-footer">'+
+            '<div class="pcard-price">'+priceHtml+'</div>'+
+            badge+
+          '</div>'+
+          '<div class="pcard-btn">View Product →</div>'+
+        '</div>'+
+      '</a>';
+  });
+  html += '</div>';
+  return html;
+}
+
+/* ── messages ── */
+function addUserBubble(text){
+  var row=document.createElement('div');
+  row.className='row user';
+  row.innerHTML=
+    '<div class="avatar user-av">Y</div>'+
+    '<div class="bgroup">'+
+      '<div class="bubble user">'+text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</div>'+
+      '<div class="btime">'+getTime()+'</div>'+
+    '</div>';
+  area.insertBefore(row,typing);
+  scrollBottom();
+}
+
+function addBotMessage(data){
+  hideTyping();
+  var row=document.createElement('div');
+  row.className='row';
+  var chipsId='chips_'+Date.now();
+
+  row.innerHTML=
+    '<div class="avatar">S</div>'+
+    '<div class="bgroup">'+
+      '<div class="bubble bot">'+
+        fmt(data.answer||'')+
+        buildCards(data.products)+
+        buildRecommendations(data.recommendations)+
+        '<div class="bubble-chips" id="'+chipsId+'"></div>'+
+      '</div>'+
+      '<div class="btime">'+getTime()+'</div>'+
+    '</div>';
+
+  area.insertBefore(row,typing);
+  renderBubbleChips(document.getElementById(chipsId), data.chips||[], data.more_options||[]);
+  scrollBottom();
+}
+
+function showToast(msg){
+  var t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(function(){ t.classList.remove('show'); },3000);
+}
+
+/* ── send ── */
+async function sendMsg(){
+  var text=input.value.trim();
+  if(!text) return;
+  input.value='';
+  addUserBubble(text);
+  showTyping();
+  setLoading(true);
+
+  // Count user messages and trigger email popup after threshold
+  _msgCount++;
+  if (_msgCount >= EMAIL_POPUP_AFTER && !_emailCaptured && !_popupDismissed) {
+    setTimeout(showEmailPopup, 800);
+  }
+
+  try{
+    var res=await fetch('/chat',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({question:text,session_id:SESSION_ID,user_id:USER_ID})
+    });
+    if(!res.ok) throw new Error('Server error');
+    var data=await res.json();
+    addBotMessage(data);
+  }catch(e){
+    hideTyping();
+    showToast('Connection error — please try again.');
+  }
+  setLoading(false);
+  input.focus();
+}
+
+/* ── clear ── */
+async function clearChat(){
+  // Only clear in-memory on server (no DB delete)
+  try{
+    await fetch('/clear',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({session_id:SESSION_ID,user_id:USER_ID})
+    });
+  }catch(e){}
+  // New session ID — history in DB stays completely untouched
+  SESSION_ID = 'ws_' + Math.random().toString(36).slice(2,9);
+  area.innerHTML=
+    '<div class="divider"><span>New conversation</span></div>'+
+    '<div class="row"><div class="avatar">S</div>'+
+    '<div class="bgroup"><div class="bubble bot">'+
+      'Chat cleared! What can I help you find? 😊'+
+      '<div class="bubble-chips" id="clearChips"></div>'+
+    '</div><div class="btime">'+getTime()+'</div></div></div>';
+  area.appendChild(typing);
+  renderBubbleChips(document.getElementById('clearChips'),TOP_CHIPS,[]);
+  showToast('Chat cleared');
+}
+
+function chipSend(label){ input.value=label; sendMsg(); }
+function handleKey(e){ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg();} }
+
+/* ── emoji picker (Messenger-style: tabs + search + frequently used) ── */
+var EMOJI_CATEGORIES = [
+  { id:"freq",   icon:"🕘", label:"Frequently used", emojis:[] },
+  { id:"smileys",icon:"😊", label:"Smileys & People", emojis:["😀","😃","😄","😁","😆","😅","🤣","😂","🙂","🙃","😉","😊","😇","🥰","😍","🤩","😘","😗","😚","😙","😋","😛","😜","🤪","😝","🤑","🤗","🤭","🤔","🤨","😐","😑","😶","🙄","😏","😣","😥","😮","🤐","😯","😪","😫","🥱","😴","😌","😛","😒","😓","😔","😕","🙁","☹️","😖","😞","😟","😢","😭","😦","😧","😨","😩","🤯","😬","😰","😱","🥵","🥶","😳","🤪","😵","😡","😠","🤬","😷","🤒","🤕","🤢","🤮","🥳","🥺","🤡","🤠","😎","🤓","🧐","😈","👍","👎","👏","🙌","👋","🤝","🙏","💪","✌️","🤞" ],
+    label2:"Smileys & People" },
+  { id:"animals",icon:"🐶", label:"Animals & Nature", emojis:["🐶","🐱","🐭","🐹","🐰","🦊","🐻","🐼","🐨","🐯","🦁","🐮","🐷","🐸","🐵","🐔","🐧","🐦","🐤","🦄","🐝","🦋","🐢","🐍","🐙","🐳","🐬","🐠","🌸","🌼","🌻","🌹","🌺","🍀","🌳","🌴","🌵","🔥","⭐","🌈"] },
+  { id:"food",   icon:"🍔", label:"Food & Drink", emojis:["🍏","🍎","🍐","🍊","🍋","🍌","🍉","🍇","🍓","🍒","🍑","🥭","🍍","🥥","🥝","🍅","🥑","🍆","🥦","🌽","🥕","🍕","🍔","🌮","🌯","🍣","🍱","🍦","🍩","🍪","🍰","🎂","🍫","🍿","🍺","☕","🍷","🥤","🍹"] },
+  { id:"sports", icon:"🏈", label:"Activities", emojis:["⚽","🏀","🏈","⚾","🎾","🏐","🏉","🎱","🏓","🎯","🎮","🎲","🧩","🎨","🎭","🎬","🎤","🎧","🎸","🏆","🥇","🎉","🎊","🎁","🛍️","👕","👗","👠","👜","💍","🕶️"] },
+  { id:"travel", icon:"🚗", label:"Travel & Places", emojis:["🚗","🚕","🚌","🚓","🚑","🚒","🚲","✈️","🚀","🚁","⛵","🚉","🗺️","🏠","🏢","🏬","🏪","🕌","🗽","🗼","🌉","🏖️","🏝️","⛰️","🌋","🌅","🌃","🌆"] },
+  { id:"objects",icon:"💡", label:"Objects", emojis:["💡","🔦","📱","💻","⌚","📷","🎥","☎️","📺","🖥️","🖨️","💰","💵","💎","🛒","🎁","📦","✉️","📧","🔔","🔒","🔑","🛠️","⚙️","🧴","🧼"] },
+  { id:"symbols",icon:"❤️", label:"Symbols", emojis:["❤️","🧡","💛","💚","💙","💜","🖤","🤍","🤎","💔","❣️","💕","💞","💓","💗","💖","💯","✨","🔥","⭐","🌟","💫","✅","❌","❓","❗","🔥","🆕","🆗"] },
+  { id:"flags",  icon:"🏁", label:"Flags", emojis:["🏁","🚩","🎌","🏴","🏳️","🇮🇳","🇺🇸","🇬🇧","🇦🇪","🏳️‍🌈"] },
+];
+
+var FREQ_KEY = 'siteGPT_freq_emojis';
+var emojiPickerOpen = false;
+var activeEmojiCat  = 'freq';
+
+function getFreqEmojis(){
+  try{ return JSON.parse(localStorage.getItem(FREQ_KEY) || '[]'); }catch(e){ return []; }
+}
+function bumpFreqEmoji(em){
+  var freq = getFreqEmojis();
+  freq = freq.filter(function(x){ return x !== em; });
+  freq.unshift(em);
+  freq = freq.slice(0, 21);
+  localStorage.setItem(FREQ_KEY, JSON.stringify(freq));
+}
+
+function buildEmojiTabs(){
+  var tabs = document.getElementById('emojiTabs');
+  tabs.innerHTML = '';
+  EMOJI_CATEGORIES.forEach(function(cat){
+    var btn = document.createElement('button');
+    btn.className = 'emoji-tab' + (cat.id === activeEmojiCat ? ' active' : '');
+    btn.textContent = cat.icon;
+    btn.title = cat.label;
+    btn.onclick = function(){ activeEmojiCat = cat.id; renderEmojiBody(); buildEmojiTabs(); };
+    tabs.appendChild(btn);
+  });
+}
+
+function renderEmojiBody(filterText){
+  var body = document.getElementById('emojiBody');
+  body.innerHTML = '';
+
+  if(filterText){
+    var matches = [];
+    EMOJI_CATEGORIES.forEach(function(cat){
+      (cat.emojis||[]).forEach(function(em){ matches.push(em); });
+    });
+    matches = matches.filter(function(em){ return em.indexOf(filterText) !== -1; });
+    if(matches.length === 0){
+      body.innerHTML = '<div class="emoji-no-results">No emoji found</div>';
+      return;
+    }
+    appendEmojiGrid(body, matches);
+    return;
+  }
+
+  if(activeEmojiCat === 'freq'){
+    var freq = getFreqEmojis();
+    var title = document.createElement('div');
+    title.className = 'emoji-section-title';
+    title.textContent = 'Frequently used';
+    body.appendChild(title);
+    if(freq.length === 0){
+      body.innerHTML += '<div class="emoji-no-results">Use some emoji and they’ll show up here!</div>';
+      return;
+    }
+    appendEmojiGrid(body, freq);
+    return;
+  }
+
+  var cat = EMOJI_CATEGORIES.find(function(c){ return c.id === activeEmojiCat; });
+  if(!cat) return;
+  var title = document.createElement('div');
+  title.className = 'emoji-section-title';
+  title.textContent = cat.label;
+  body.appendChild(title);
+  appendEmojiGrid(body, cat.emojis);
+}
+
+function appendEmojiGrid(body, list){
+  var grid = document.createElement('div');
+  grid.className = 'emoji-grid';
+  list.forEach(function(em){
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'emoji-item';
+    b.textContent = em;
+    b.onclick = function(e){ e.stopPropagation(); insertEmoji(em); };
+    grid.appendChild(b);
+  });
+  body.appendChild(grid);
+}
+
+function toggleEmojiPicker(e){
+  if(e) e.stopPropagation();
+  var picker = document.getElementById('emojiPicker');
+  emojiPickerOpen = !emojiPickerOpen;
+  if(emojiPickerOpen){
+    buildEmojiTabs();
+    renderEmojiBody();
+    document.getElementById('emojiSearch').value = '';
+    picker.classList.add('show');
+  } else {
+    picker.classList.remove('show');
+  }
+}
+function insertEmoji(em){
+  var start = input.selectionStart || input.value.length;
+  var end   = input.selectionEnd || input.value.length;
+  input.value = input.value.slice(0,start) + em + input.value.slice(end);
+  bumpFreqEmoji(em);
+  input.focus();
+  var pos = start + em.length;
+  input.setSelectionRange(pos,pos);
+}
+document.addEventListener('click', function(e){
+  var wrap = document.querySelector('.emoji-wrap');
+  if(emojiPickerOpen && wrap && !wrap.contains(e.target)){
+    emojiPickerOpen = false;
+    document.getElementById('emojiPicker').classList.remove('show');
+  }
+});
+
+/* ── mic / voice input ── */
+var recognition = null;
+var micListening = false;
+var SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+if(SpeechRec){
+  recognition = new SpeechRec();
+  recognition.continuous = false;
+  recognition.interimResults = false;
+  recognition.lang = 'en-IN';
+
+  recognition.onresult = function(event){
+    var transcript = event.results[0][0].transcript;
+    input.value = (input.value ? input.value + ' ' : '') + transcript;
+    input.focus();
+  };
+  recognition.onerror = function(){
+    showToast('Could not hear you — try again.');
+    stopMicUI();
+  };
+  recognition.onend = function(){
+    stopMicUI();
+  };
+} else {
+  console.log('Speech recognition not supported in this browser.');
+}
+
+function toggleMic(){
+  if(!recognition){
+    showToast('Voice input not supported on this browser.');
+    return;
+  }
+  if(micListening){
+    recognition.stop();
+    stopMicUI();
+  } else {
+    try{
+      recognition.start();
+      micListening = true;
+      document.getElementById('micBtn').classList.add('listening');
+      showToast('Listening...');
+    }catch(e){
+      console.log(e);
+    }
+  }
+}
+function stopMicUI(){
+  micListening = false;
+  document.getElementById('micBtn').classList.remove('listening');
+}
+
+input.focus();
+</script>
+</body>
+</html>

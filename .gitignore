@@ -1,0 +1,32 @@
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Environment variables
+.env
+
+# Chroma vector database
+chroma_db/
+chroma/
+
+# Generated data
+cleaned_data.json
+scraped_old.json
+chunks.json
+scraped.json
+
+# VS Code
+.vscode/
+
+# Temporary files
+tempCodeRunnerFile.py
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
